@@ -20,6 +20,7 @@ Street, Fifth Floor, Boston, MA 02110-1301, USA
 */
 
 #include "viso_stereo.h"
+#include <iostream>
 
 using namespace std;
 
@@ -31,7 +32,7 @@ VisualOdometryStereo::VisualOdometryStereo (parameters param) : param(param), Vi
 VisualOdometryStereo::~VisualOdometryStereo() {
 }
 
-bool VisualOdometryStereo::process (uint8_t *I1,uint8_t *I2,int32_t* dims, TCouple* couple,bool replace) {
+bool VisualOdometryStereo::process (uint8_t *I1,uint8_t *I2,int32_t* dims, TCouple* couple, int id, bool replace) {
   
   // push back images
   matcher->pushBack(I1,I2,dims,replace);
@@ -48,7 +49,9 @@ bool VisualOdometryStereo::process (uint8_t *I1,uint8_t *I2,int32_t* dims, TCoup
   else          matcher->matchFeatures(2);
   matcher->bucketFeatures(param.bucket.max_features,param.bucket.bucket_width,param.bucket.bucket_height);                          
   p_matched = matcher->getMatches();
-  couple->matches = p_matched;
+  if(couple){
+    couple->matches = p_matched;
+  }
   return updateMotion();
 }
 

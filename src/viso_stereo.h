@@ -23,13 +23,8 @@ Street, Fifth Floor, Boston, MA 02110-1301, USA
 #define VISO_STEREO_H
 
 #include "viso.h"
-#include "TCouple.h"
+#include "tcouple.h"
 
-// struct SaveItem{
-//   Matcher::p_match match;
-//   std::string f_photo_id;
-//   std::string b_photo_id;
-// };
 
 class VisualOdometryStereo : public VisualOdometry {
 
@@ -67,7 +62,7 @@ public:
   //                     when small/no motions are observed to obtain Tr_delta wrt
   //                     an older coordinate system / time step than the previous one.
   // output: returns false if an error occured
-  bool process (uint8_t *I1,uint8_t *I2,int32_t* dims, TCouple* couple, bool replace=false);
+  bool process (uint8_t *I1,uint8_t *I2,int32_t* dims, TCouple* couple, int id, bool replace=false);
 
   using VisualOdometry::process;
 

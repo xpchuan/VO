@@ -10,8 +10,8 @@ class TCouple{
     public:
         void saveToBinaryFile(std::string path);
         std::vector<Matcher::p_match> matches;
-        std::string f_frame_id_;
-        std::string b_frame_id_;
+        std::string p_frame_id_;
+        std::string c_frame_id_;
         Matrix pose_;
 };
 

@@ -151,12 +151,12 @@ private:
   struct range {
     float u_min[4];
     float u_max[4];
-    float parametersv_min[4];
+    float v_min[4];
     float v_max[4];
   };
   
   struct delta {
-    float parametersval[8];
+    float val[8];
     delta () {}
     delta (float v) {
       for (int32_t i=0; i<8; i++)
@@ -245,4 +245,3 @@ private:
 };
 
 #endif
-

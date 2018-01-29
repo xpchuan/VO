@@ -2,6 +2,8 @@
 cmake_minimum_required (VERSION 2.6)
 project (libviso2)
 
+add_compile_options(-std=c++11)
+
 # directories
 set (LIBVISO2_SRC_DIR src)
 

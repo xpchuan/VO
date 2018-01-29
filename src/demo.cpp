@@ -53,7 +53,7 @@ int main (int argc, char** argv) {
 
   // sequence directory
   //string dir = argv[1];
-  std::string dir = "/home/xpc/project/VO/data";
+  std::string dir = "/home/hesai/project/libviso2/data/dataset/sequences/00";
   
   // set most important visual odometry parameters
   // for a full parameter list, look at: viso_stereo.h
@@ -83,12 +83,19 @@ int main (int argc, char** argv) {
     // catch image read/write errors here
     try {
       //init save
-      TCouple* couple = new TCouple();
+      TCouple* couple;
+      if(i > 0)
+        couple = new TCouple();
+      else
+        couple = NULL;
 
       // load left and right input image
       png::image< png::gray_pixel > left_img(left_img_file_name);
       png::image< png::gray_pixel > right_img(right_img_file_name);
-
+      if(couple){
+         couple->p_frame_id_ = std::to_string(i-1);
+         couple->c_frame_id_ = std::to_string(i);
+      }
       // image dimensions
       int32_t width  = left_img.get_width();
       int32_t height = left_img.get_height();
@@ -110,7 +117,7 @@ int main (int argc, char** argv) {
       
       // compute visual odometry
       int32_t dims[] = {width,height,width};
-      if (viso.process(left_img_data,right_img_data,dims,couple)) {
+      if (viso.process(left_img_data,right_img_data,dims,couple,i)) {
       
         // on success, update current pose
         pose = pose * Matrix::inv(viso.getMotion());
@@ -122,11 +129,17 @@ int main (int argc, char** argv) {
         std::cout << ", Inliers: " << 100.0*num_inliers/num_matches << " %" << ", Current pose: " << std::endl;
         std::cout << pose << std::endl;
         pose_vec.push_back(pose);
+        couple->pose_ = pose;
 
       } else {
         std::cout << " ... failed!" << std::endl;
       }
 
+      if(couple){
+         couple->saveToBinaryFile("/home/hesai/project/libviso2/result/couple-" + std::to_string(i-1) + "-" + std::to_string(i));
+         delete couple;
+         couple = NULL;
+      }
       // release uint8_t buffers
       free(left_img_data);
       free(right_img_data);

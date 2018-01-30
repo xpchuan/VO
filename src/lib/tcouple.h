@@ -9,6 +9,7 @@
 class TCouple{
     public:
         void saveToBinaryFile(std::string path);
+        void loadFromBinaryFile(std::string path);
         std::vector<Matcher::p_match> matches;
         std::string p_frame_id_;
         std::string c_frame_id_;

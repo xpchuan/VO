@@ -2,7 +2,6 @@
 cmake_minimum_required (VERSION 2.6)
 project (libviso2)
 
-include(CMakeToolsHelpers OPTIONAL)
 add_compile_options(-std=c++11)
 
 find_package(OpenCV REQUIRED)
@@ -20,7 +19,7 @@ SET(CMAKE_CXX_FLAGS "-msse3")
 FILE(GLOB LIBVISO2_SRC_FILES "src/lib/*.cpp")
 
 # make release version
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
 
 add_library(viso2 ${LIBVISO2_SRC_FILES})
 target_link_libraries (viso2 png)
@@ -32,4 +31,6 @@ target_link_libraries (viso2_demo viso2)
 add_executable(result_viso src/result_viso/result_viso.cpp)
 target_link_libraries (result_viso viso2 ${OpenCV_LIBRARIES})
 #message(STATUS ${OpenCV_LIBRARIES})
+
+message(STATUS ${CMAKE_BUILD_TYPE})
 

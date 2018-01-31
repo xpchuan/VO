@@ -93,8 +93,8 @@ int main (int argc, char** argv) {
       png::image< png::gray_pixel > left_img(left_img_file_name);
       png::image< png::gray_pixel > right_img(right_img_file_name);
       if(couple){
-         couple->p_frame_id_ = std::to_string(i-1);
-         couple->c_frame_id_ = std::to_string(i);
+         couple->p_frame_id_ = i-1;
+         couple->c_frame_id_ = i;
       }
       // image dimensions
       int32_t width  = left_img.get_width();

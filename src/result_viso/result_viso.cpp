@@ -12,7 +12,7 @@ int main(int argc, char ** argv){
     cv::Mat c_left,p_left,c_right,p_right;
     int i = 1;
     for(; i < 200; i++){
-         std::cout<<"start:"<<std::to_string(i)<<std::endl;
+        std::cout<<"start:"<<std::to_string(i)<<std::endl;
         char p_base_name[256]; sprintf(p_base_name,"%06d.png",i-1);
         char c_base_name[256]; sprintf(c_base_name,"%06d.png",i);
         p_left = cv::imread(data_dir + "/image_0/" + std::string(p_base_name),cv::IMREAD_GRAYSCALE);
@@ -26,10 +26,10 @@ int main(int argc, char ** argv){
         int nCols = p_left.cols * 2;
         std::vector<Matcher::p_match> matches = couple->matches;
         for(auto it:matches){
-            p_left.at<unsigned char>(it.u1p, it.v1p) = 0;
-            p_right.at<unsigned char>(it.u2p, it.v2p) = 0;
-            c_left.at<unsigned char>(it.u1c, it.v1c) = 0;
-            c_right.at<unsigned char>(it.u2c, it.v2c) = 0;
+            p_left.at<unsigned char>(it.v1p, it.u1p) = 0;
+            p_right.at<unsigned char>(it.v2p, it.u2p) = 0;
+            c_left.at<unsigned char>(it.v1c, it.u1c) = 0;
+            c_right.at<unsigned char>(it.v2c, it.u2c) = 0;
         }
         matches.clear();
         cv::Mat sumVleft(nRows, p_left.cols, CV_8UC1);
@@ -40,6 +40,7 @@ int main(int argc, char ** argv){
         cv::hconcat(sumVleft, sumVright, sumIm);
         cv::imwrite(im_result_dir +  "/im-couple-" + std::to_string(i-1) + "-" + std::to_string(i) + ".png", sumIm);
         std::cout<<"finish:"<<std::to_string(i)<<std::endl;
+        std::cout<<"end:"<<std::to_string(i)<<std::endl;
         delete couple;
     }
 }

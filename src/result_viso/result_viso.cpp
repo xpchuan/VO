@@ -4,6 +4,16 @@
 
 #include "tcouple.h"
 #include "matcher.h"
+#include "viso_stereo.h"
+#include "matrix.h"
+
+VisualOdometryStereo::parameters param;
+
+// calibration parameters for sequence 2010_03_09_drive_0019 
+param.calib.f  = 718.856; // focal length in pixels
+param.calib.cu = 607.1928; // principal point (u-coordinate) in pixels
+param.calib.cv = 185.2157; // principal point (v-coordinate) in pixels
+param.base     = 0.54;
 
 int main(int argc, char ** argv){
     std::string data_dir = "/home/hesai/project/libviso2/data/dataset/sequences/00";
@@ -82,5 +92,27 @@ int main(int argc, char ** argv){
         std::cout<<"end:"<<std::to_string(i)<<std::endl;
         delete ccouple;
         delete pcouple;
+    }
+}
+
+void computeUV(vector<Matcher::p_match> &p_matched, 
+                                vector<Matcher::p_match> &c_p_matched,
+                                Matrix pose){
+    int N = p_matched.size();
+
+     // allocate dynamic memory
+    double X;
+    double Y;
+    double Z;
+
+    // project matches of previous image into 3d
+    for (int32_t i=0; i<N; i++) {
+        double d = max(p_matched[i].u1p - p_matched[i].u2p,0.0001f);
+        X = (p_matched[i].u1p-param.calib.cu)*param.base/d;
+        Y = (p_matched[i].v1p-param.calib.cv)*param.base/d;
+        Z = param.calib.f*param.base/d;
+        Matrix pp_position_vec = Matrix::eye(4);
+        pp_position_vec.val[0][3] = X; pp_position_vec.val[1][3] = Y; pp_position_vec.val[2][3] = Z;
+        Matrix c_position_vec = pose * pp_position_vec;
     }
 }

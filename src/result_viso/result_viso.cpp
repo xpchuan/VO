@@ -7,20 +7,27 @@
 #include "viso_stereo.h"
 #include "matrix.h"
 
-VisualOdometryStereo::parameters param;
+#include <cmath>
+#include <algorithm>
 
-// calibration parameters for sequence 2010_03_09_drive_0019 
-param.calib.f  = 718.856; // focal length in pixels
-param.calib.cu = 607.1928; // principal point (u-coordinate) in pixels
-param.calib.cv = 185.2157; // principal point (v-coordinate) in pixels
-param.base     = 0.54;
+VisualOdometryStereo::parameters param;
+void computeUV(std::vector<Matcher::p_match> &pp_p_matched, 
+                                std::vector<Matcher::p_match> &c_pp_matched,
+                                Matrix delta_pose, 
+                                int rows,
+                                int cols);
 
 int main(int argc, char ** argv){
+// calibration parameters for sequence 2010_03_09_drive_0019 
+    param.calib.f  = 718.856; // focal length in pixels
+    param.calib.cu = 607.1928; // principal point (u-coordinate) in pixels
+    param.calib.cv = 185.2157; // principal point (v-coordinate) in pixels
+    param.base     = 0.54;
     std::string data_dir = "/home/hesai/project/libviso2/data/dataset/sequences/00";
     std::string result_dir = "/home/hesai/project/libviso2/result";
     std::string im_result_dir = "/home/hesai/project/libviso2/im_result";
     cv::Mat c_left,p_left,pp_left,c_right,p_right,pp_right;
-    int i = 2;
+    int i = 3;
     for(; i < 200; i++){
         std::cout<<"start:"<<std::to_string(i)<<std::endl;
         char pp_base_name[256]; sprintf(pp_base_name,"%06d.png",i-2);
@@ -49,10 +56,15 @@ int main(int argc, char ** argv){
 
         TCouple* ccouple = new TCouple();
         TCouple* pcouple = new TCouple();
+        TCouple* ppcouple = new TCouple();
         ccouple->loadFromBinaryFile(result_dir + "/couple-" + std::to_string(i-1) + "-" + std::to_string(i));
         pcouple->loadFromBinaryFile(result_dir + "/couple-" + std::to_string(i-2) + "-" + std::to_string(i-1));
+        ppcouple->loadFromBinaryFile(result_dir + "/couple-" + std::to_string(i-3) + "-" + std::to_string(i-2));
         std::vector<Matcher::p_match> cmatches = ccouple->matches;
         std::vector<Matcher::p_match>  pmatches = pcouple->matches;
+        std::vector<Matcher::p_match>  cppmatches;
+        Matrix matrix_delta = Matrix::inv(ccouple->pose_) * ppcouple->pose_;
+        computeUV(pmatches,cppmatches, matrix_delta, p_left.rows, p_left.cols);
         int value[3] = {0, 0 , 255};
         for(auto it:cmatches){
             for(int i = 0; i < 3; i++){
@@ -71,9 +83,12 @@ int main(int argc, char ** argv){
                 pp_right_color.at<cv::Vec3b>(it.v2p, it.u2p)[i] = value[i];
             }
         }
-
-        pmatches.clear();
-        cmatches.clear();
+        for(auto it:cppmatches){
+            for(int i = 0; i < 3; i++){
+                c_left_color.at<cv::Vec3b>(it.v1c, it.u1c)[i] = value[i];
+                c_right_color.at<cv::Vec3b>(it.v2c, it.u2c)[i] = value[i];
+            }
+        }
         cv::Mat sumVleft(p_left.rows * 2 , p_left.cols, CV_8UC3);
         cv::vconcat(c_left_color, p_left_color, sumVleft);
         cv::Mat sumVleft2(p_left.rows * 3 , p_left.cols, CV_8UC3);
@@ -92,13 +107,24 @@ int main(int argc, char ** argv){
         std::cout<<"end:"<<std::to_string(i)<<std::endl;
         delete ccouple;
         delete pcouple;
+        delete ppcouple;
     }
 }
 
-void computeUV(vector<Matcher::p_match> &p_matched, 
-                                vector<Matcher::p_match> &c_p_matched,
-                                Matrix pose){
-    int N = p_matched.size();
+double 
+getRound(double input, int range){
+    double i_round = round(input);
+    if(i_round < 0)
+        return 0;
+    return std::min<double>(input, static_cast<double>(range));
+}
+
+void computeUV(std::vector<Matcher::p_match> &pp_p_matched, 
+                                std::vector<Matcher::p_match> &c_pp_matched,
+                                Matrix delta_pose, 
+                                int rows,
+                                int cols){
+    int N = pp_p_matched.size();
 
      // allocate dynamic memory
     double X;
@@ -107,12 +133,21 @@ void computeUV(vector<Matcher::p_match> &p_matched,
 
     // project matches of previous image into 3d
     for (int32_t i=0; i<N; i++) {
-        double d = max(p_matched[i].u1p - p_matched[i].u2p,0.0001f);
-        X = (p_matched[i].u1p-param.calib.cu)*param.base/d;
-        Y = (p_matched[i].v1p-param.calib.cv)*param.base/d;
+        double d = std::max<double>(pp_p_matched[i].u1p - pp_p_matched[i].u2p,0.0001f);
+        X = (pp_p_matched[i].u1p-param.calib.cu)*param.base/d;
+        Y = (pp_p_matched[i].v1p-param.calib.cv)*param.base/d;
         Z = param.calib.f*param.base/d;
         Matrix pp_position_vec = Matrix::eye(4);
         pp_position_vec.val[0][3] = X; pp_position_vec.val[1][3] = Y; pp_position_vec.val[2][3] = Z;
-        Matrix c_position_vec = pose * pp_position_vec;
+        Matrix c_position_vec = delta_pose * pp_position_vec;
+        X = c_position_vec.val[0][3]; Y = c_position_vec.val[1][3]; Z = c_position_vec.val[2][3];
+        Matcher::p_match match_point;
+        d = param.calib.f/std::max<double>(Z, 0.0001f)*param.base;
+        match_point.u1c = getRound(X*param.calib.f/Z + param.calib.cu, cols-1); 
+        match_point.v1c = getRound(Y*param.calib.f/Z + param.calib.cv, rows-1);
+        match_point.u2c = getRound(X*param.calib.f/Z + param.calib.cu - d, cols-1); 
+        match_point.v2c = getRound(Y*param.calib.f/Z + param.calib.cv, rows-1);
+        c_pp_matched.push_back(match_point); 
     }
 }
+

@@ -28,7 +28,7 @@ int main(int argc, char ** argv){
     std::string im_result_dir = "/home/hesai/project/libviso2/im_result";
     cv::Mat c_left,p_left,pp_left,c_right,p_right,pp_right;
     int i = 3;
-    for(; i < 200; i++){
+    for(; i < 800; i++){
         std::cout<<"start:"<<std::to_string(i)<<std::endl;
         char pp_base_name[256]; sprintf(pp_base_name,"%06d.png",i-2);
         char p_base_name[256]; sprintf(p_base_name,"%06d.png",i-1);
@@ -63,8 +63,8 @@ int main(int argc, char ** argv){
         std::vector<Matcher::p_match> cmatches = ccouple->matches;
         std::vector<Matcher::p_match>  pmatches = pcouple->matches;
         std::vector<Matcher::p_match>  cppmatches;
-        Matrix matrix_delta = Matrix::inv(ccouple->pose_) * ppcouple->pose_;
-        computeUV(pmatches,cppmatches, matrix_delta, p_left.rows, p_left.cols);
+        //Matrix matrix_delta = Matrix::inv(ccouple->pose_) * ppcouple->pose_;
+        //computeUV(pmatches,cppmatches, matrix_delta, p_left.rows, p_left.cols);
         int value[3] = {0, 0 , 255};
         for(auto it:cmatches){
             for(int i = 0; i < 3; i++){
@@ -75,20 +75,37 @@ int main(int argc, char ** argv){
             }
         }
         value[1] = 255;
+        int count_overlap = 0;
         for(auto it:pmatches){
             for(int i = 0; i < 3; i++){
-                p_left_color.at<cv::Vec3b>(it.v1p, it.u1p)[i] = value[i];
-                p_right_color.at<cv::Vec3b>(it.v2p, it.u2p)[i] = value[i];
+                p_left_color.at<cv::Vec3b>(it.v1c, it.u1c)[i] = value[i];
+                p_right_color.at<cv::Vec3b>(it.v2c, it.u2c)[i] = value[i];
                 pp_left_color.at<cv::Vec3b>(it.v1p, it.u1p)[i] = value[i];
                 pp_right_color.at<cv::Vec3b>(it.v2p, it.u2p)[i] = value[i];
             }
-        }
-        for(auto it:cppmatches){
-            for(int i = 0; i < 3; i++){
-                c_left_color.at<cv::Vec3b>(it.v1c, it.u1c)[i] = value[i];
-                c_right_color.at<cv::Vec3b>(it.v2c, it.u2c)[i] = value[i];
+            for(auto itc:cmatches){
+                value[0] = 0;
+                value[2] = 0;
+                double v_res = std::abs(itc.v1p - it.v1c);
+                double u_res = std::abs(itc.u1p - it.u1c);
+                if(v_res < 3 && u_res < 3){
+                    count_overlap ++;
+                    for(int i = 0; i < 3; i++){
+                        p_left_color.at<cv::Vec3b>(it.v1c, it.u1c)[i] = value[i];
+                        p_right_color.at<cv::Vec3b>(it.v2c, it.u2c)[i] = value[i];
+                    }
+                }
+                value[2] = 255;
             }
         }
+        double ocur = static_cast<double>(count_overlap)/pmatches.size();
+        std::cout<<"overlap:"<<count_overlap<<"/"<<pmatches.size()<<std::endl;
+        //for(auto it:cppmatches){
+        //    for(int i = 0; i < 3; i++){
+        //        c_left_color.at<cv::Vec3b>(it.v1c, it.u1c)[i] = value[i];
+        //        c_right_color.at<cv::Vec3b>(it.v2c, it.u2c)[i] = value[i];
+        //    }
+        //}
         cv::Mat sumVleft(p_left.rows * 2 , p_left.cols, CV_8UC3);
         cv::vconcat(c_left_color, p_left_color, sumVleft);
         cv::Mat sumVleft2(p_left.rows * 3 , p_left.cols, CV_8UC3);

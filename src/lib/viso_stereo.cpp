@@ -49,8 +49,9 @@ bool VisualOdometryStereo::process (uint8_t *I1,uint8_t *I2,int32_t* dims, TCoup
   else          matcher->matchFeatures(2);
   matcher->bucketFeatures(param.bucket.max_features,param.bucket.bucket_width,param.bucket.bucket_height);                          
   p_matched = matcher->getMatches();
-  if(couple){
-    couple->matches = p_matched;
+  couple_ = couple;
+  if(couple_){
+    couple_->matches_ = p_matched;
   }
   return updateMotion();
 }
@@ -97,6 +98,10 @@ vector<double> VisualOdometryStereo::estimateMotion (vector<Matcher::p_match> p_
   
   // clear parameter vector
   inliers.clear();
+  if (couple_)
+    couple_->features_count_ = std::vector<int32_t>(N, 0);
+  
+    
 
   // initial RANSAC estimate
   for (int32_t k=0;k<param.ransac_iters;k++) {
@@ -120,11 +125,20 @@ vector<double> VisualOdometryStereo::estimateMotion (vector<Matcher::p_match> p_
     // overwrite best parameters if we have more inliers
     if (result!=FAILED) {
       vector<int32_t> inliers_curr = getInlier(p_matched,tr_delta_curr);
+      if (couple_){
+        for (auto inlier : inliers)
+          couple_->features_count_[inlier] += 1;
+      }
       if (inliers_curr.size()>inliers.size()) {
         inliers = inliers_curr;
         tr_delta = tr_delta_curr;
       }
     }
+  }
+
+  if (couple_){
+    for (auto inlier : inliers)
+      couple_->features_count_[inlier] *= -1;
   }
   
   // final optimization (refinement)
@@ -132,7 +146,7 @@ vector<double> VisualOdometryStereo::estimateMotion (vector<Matcher::p_match> p_
     int32_t iter=0;
     VisualOdometryStereo::result result = UPDATED;
     while (result==UPDATED) {     
-      result = updateParameters(p_matched,inliers,tr_delta,1,1e-8);
+      result = updateParameters(p_matched,inliers,tr_delta,1,1e-9);
       if (iter++ > 100 || result==CONVERGED)
         break;
     }

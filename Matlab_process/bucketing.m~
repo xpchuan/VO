@@ -1,0 +1,51 @@
+clc;
+clear;
+load('features.mat')
+xd = 50;
+yd = 50;
+for i = 1:900
+    filename = sprintf('../result/couple-%d-%d', i-1, i);
+    fid = fopen(filename);
+    fread(fid, 2, 'int32');
+    fread(fid, 16, 'double');
+    fsize = fread(fid, 1, 'int32');
+    features = [];
+    for index = 1:fsize
+        feature.u1p = fread(fid, 1, 'float32');
+        feature.v1p = fread(fid, 1, 'float32');
+        feature.i1p = fread(fid, 1, 'int32');
+        fread(fid, 36, 'int8');
+        features = [features feature];
+    end
+    for index = 1:fsize
+        count = fread(fid, 1, 'int32');
+        if count < 0
+            features(index).final = 1;
+            features(index).count =  -count;
+        else 
+            features(index).final = 0;
+            features(index).count = count;
+        end     
+    end
+end
+
+[rl, cl] = size(pic);
+count = length(features);
+bucket = zeros(ceil(rl / yd), ceil(cl / xd));
+for i = 1:count
+    bucket(ceil(features(i).v1p / yd),...
+            ceil(features(i).u1p / xd)) = bucket(ceil(features(i).v1p / yd),...
+            ceil(features(i).u1p / xd)) + 1;
+end
+pic_out = uint8(zeros(rl, cl, 3));
+for r = 1:rl
+    for c =1:cl 
+        bucket_r = ceil(r / yd);
+        bucket_c = ceil(c / xd);
+        pic_out(r, c, 1) = pic(r, c);
+        pic_out(r, c, 2) = bucket(bucket_r, bucket_c) * 10;
+        pic_out(r, c, 3) = 0;
+    end
+end
+
+imshow(pic_out)

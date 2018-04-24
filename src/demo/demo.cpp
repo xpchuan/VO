@@ -30,17 +30,16 @@ Street, Fifth Floor, Boston, MA 02110-1301, USA
 #include <string>
 #include <vector>
 #include <stdint.h>
+#include <time.h>
 
 #include <viso_stereo.h>
 #include <png++/png.hpp>
-
-#include <vector>
 
 #include <fstream>
 
 //using namespace std;
 
-
+std::string root_dir = "/home/hesai/project/VO";
 
 
 int main (int argc, char** argv) {
@@ -53,17 +52,17 @@ int main (int argc, char** argv) {
 
   // sequence directory
   //string dir = argv[1];
-  std::string dir = "/home/hesai/project/libviso2/data/dataset/sequences/00";
+  std::string dir = root_dir + "/data";
   
   // set most important visual odometry parameters
   // for a full parameter list, look at: viso_stereo.h
   VisualOdometryStereo::parameters param;
 
   // calibration parameters for sequence 2010_03_09_drive_0019 
-  param.calib.f  = 718.856; // focal length in pixels
-  param.calib.cu = 607.1928; // principal point (u-coordinate) in pixels
-  param.calib.cv = 185.2157; // principal point (v-coordinate) in pixels
-  param.base     = 0.54; // baseline in meters
+  param.calib.f  = 7.188560000000e+02; // focal length in pixels
+  param.calib.cu = 6.071928000000e+02; // principal point (u-coordinate) in pixels
+  param.calib.cv = 1.852157000000e+02; // principal point (v-coordinate) in pixels
+  param.base     = 0.5371657188644179; // baseline in meters
   
   // init visual odometry
   VisualOdometryStereo viso(param);
@@ -73,8 +72,14 @@ int main (int argc, char** argv) {
   Matrix pose = Matrix::eye(4);
   std::vector<Matrix>  pose_vec;
   // loop through all frames i=0:372
-  for (int32_t i=0; i<4540; i++) {
+  clock_t start_time = 0;
+  double sum_time = 0;
+  double sum_matches = 0;
+  double sum_inliers = 0;
 
+  for (int32_t i=0; i<=1100; i++) {
+
+    start_time = clock();
     // input file names
     char base_name[256]; sprintf(base_name,"%06d.png",i);
     std::string left_img_file_name  = dir + "/image_0/" + std::string(base_name);
@@ -114,20 +119,23 @@ int main (int argc, char** argv) {
 
       // status
       std::cout << "Processing: Frame: " << i;
-      
       // compute visual odometry
       int32_t dims[] = {width,height,width};
       if (viso.process(left_img_data,right_img_data,dims,couple,i)) {
       
         // on success, update current pose
         pose = pose * Matrix::inv(viso.getMotion());
-      
+        sum_time += static_cast<double>(clock() - start_time) / CLOCKS_PER_SEC;
         // output some statistics
         double num_matches = viso.getNumberOfMatches();
         double num_inliers = viso.getNumberOfInliers();
+        sum_matches += num_matches;
+        sum_inliers += num_inliers;
         std::cout << ", Matches: " << num_matches;
         std::cout << ", Inliers: " << 100.0*num_inliers/num_matches << " %" << ", Current pose: " << std::endl;
-        std::cout << pose << std::endl;
+        if (num_matches < 1000)
+            std::cout << i << " matched badly"<< std::endl;
+        //std::cout << pose << std::endl;
         pose_vec.push_back(pose);
         couple->pose_ = pose;
 
@@ -136,7 +144,7 @@ int main (int argc, char** argv) {
       }
 
       if(couple){
-         couple->saveToBinaryFile("/home/hesai/project/libviso2/result/couple-" + std::to_string(i-1) + "-" + std::to_string(i));
+         couple->saveToBinaryFile(root_dir+ "/result/couple-" + std::to_string(i-1) + "-" + std::to_string(i));
          delete couple;
          couple = NULL;
       }
@@ -156,7 +164,8 @@ int main (int argc, char** argv) {
 
 
   //save result
-  std::ofstream fout("./pose_result.bin",std::ios::binary);
+  std::ofstream fout(root_dir + 
+            "/Matlab_process/pose_result.bin",std::ios::binary);
   for(std::vector<Matrix>::iterator it = pose_vec.begin();
                                    it != pose_vec.end(); ++it){
     for(int i = 0; i < 4; i++){
@@ -164,7 +173,10 @@ int main (int argc, char** argv) {
         fout.write((char*)&(it->val[i][j]),sizeof(FLOAT));
     }
   }
-  std::cout<<"length:"<<pose_vec.size()<<std::endl;
+  std::cout << "length:" << pose_vec.size() << std::endl;
+  std::cout << "fps:" << 1.0 / sum_time * pose_vec.size() << std::endl;
+  std::cout << "avg_matches:" << sum_matches / pose_vec.size() << std::endl;
+  std::cout << "avg_inliers:" << sum_inliers / pose_vec.size() << std::endl;
   fout.close();
 
   // exit

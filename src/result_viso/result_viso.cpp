@@ -6,9 +6,9 @@
 #include "matcher.h"
 
 int main(int argc, char ** argv){
-    std::string data_dir = "/home/hesai/project/libviso2/data/dataset/sequences/00";
-    std::string result_dir = "/home/hesai/project/libviso2/result";
-    std::string im_result_dir = "/home/hesai/project/libviso2/im_result";
+    std::string data_dir = "/home/hesai/project/VO/data";
+    std::string result_dir = "/home/hesai/project/VO/result";
+    std::string im_result_dir = "/home/hesai/project/VO/im_result";
     cv::Mat c_left,p_left,c_right,p_right;
     int i = 1;
     for(; i < 800; i++){
@@ -34,15 +34,17 @@ int main(int argc, char ** argv){
         couple->loadFromBinaryFile(result_dir + "/couple-" + std::to_string(i-1) + "-" + std::to_string(i));
         int nRows = p_left.rows * 2;
         int nCols = p_left.cols * 2;
-        std::vector<Matcher::p_match> matches = couple->matches;
+        std::vector<Matcher::p_match> matches = couple->matches_;
         int value[3] = {0, 0 , 255};
         for(auto it:matches){
-            for(int i = 0; i < 3; i++){
-                p_left_color.at<cv::Vec3b>(it.v1p, it.u1p)[i] = value[i];
-                p_right_color.at<cv::Vec3b>(it.v2p, it.u2p)[i] = value[i];
-                c_left_color.at<cv::Vec3b>(it.v1c, it.u1c)[i] = value[i];
-                c_right_color.at<cv::Vec3b>(it.v2c, it.u2c)[i] = value[i];
-            }
+            cv::Point center_pl = cv::Point(it.u1p, it.v1p);
+            cv::Point center_pr = cv::Point(it.u2p, it.v2p);
+            cv::Point center_cl = cv::Point(it.u1c, it.v1c);
+            cv::Point center_cr = cv::Point(it.u2c, it.v2c);
+            cv::circle(p_left_color, center_pl, 2, cv::Scalar(value[0], value[1],value[2]));
+            cv::circle(p_right_color, center_pr, 2, cv::Scalar(value[0], value[1],value[2]));
+            cv::circle(c_left_color, center_cl, 2, cv::Scalar(value[0], value[1],value[2]));
+            cv::circle(c_right_color, center_cr, 2, cv::Scalar(value[0], value[1],value[2]));
         }
         matches.clear();
         cv::Mat sumVleft(nRows, p_left.cols, CV_8UC3);
@@ -52,8 +54,7 @@ int main(int argc, char ** argv){
         cv::Mat sumIm(nRows, nCols, CV_8UC3);
         cv::hconcat(sumVleft, sumVright, sumIm);
         cv::imwrite(im_result_dir +  "/im-couple-" + std::to_string(i-1) + "-" + std::to_string(i) + ".png", sumIm);
-        std::cout<<"finish:"<<std::to_string(i)<<std::endl;
-        std::cout<<"end:"<<std::to_string(i)<<std::endl;
+        std::cout << "output:" << i <<std::endl;
         delete couple;
     }
 }

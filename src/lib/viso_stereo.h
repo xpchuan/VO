@@ -82,6 +82,7 @@ private:
   
   // parameters
   parameters param;
+  TCouple *couple_;
   //std::vector<SaveItem> save_sequence;
 };
 

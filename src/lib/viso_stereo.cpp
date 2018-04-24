@@ -20,12 +20,13 @@ Street, Fifth Floor, Boston, MA 02110-1301, USA
 */
 
 #include "viso_stereo.h"
-#include <iostream>
+#include <fstream>
 
 using namespace std;
 
 
-VisualOdometryStereo::VisualOdometryStereo (parameters param) : param(param), VisualOdometry(param) {
+VisualOdometryStereo::VisualOdometryStereo (parameters param) 
+: param(param), VisualOdometry(param), couple_(NULL){
   matcher->setIntrinsics(param.calib.f,param.calib.cu,param.calib.cv,param.base);
 }
 
@@ -49,8 +50,9 @@ bool VisualOdometryStereo::process (uint8_t *I1,uint8_t *I2,int32_t* dims, TCoup
   else          matcher->matchFeatures(2);
   matcher->bucketFeatures(param.bucket.max_features,param.bucket.bucket_width,param.bucket.bucket_height);                          
   p_matched = matcher->getMatches();
-  if(couple){
-    couple->matches = p_matched;
+  couple_ = couple;
+  if(couple_){
+    couple_->matches_ = p_matched;
   }
   return updateMotion();
 }
@@ -82,6 +84,10 @@ vector<double> VisualOdometryStereo::estimateMotion (vector<Matcher::p_match> p_
   p_observe  = new double[4*N];
   p_residual = new double[4*N];
 
+    
+  vector<vector<int32_t> > block;
+  block.resize(3);
+
   // project matches of previous image into 3d
   for (int32_t i=0; i<N; i++) {
     double d = max(p_matched[i].u1p - p_matched[i].u2p,0.0001f);
@@ -95,8 +101,60 @@ vector<double> VisualOdometryStereo::estimateMotion (vector<Matcher::p_match> p_
   vector<double> tr_delta_curr;
   tr_delta_curr.resize(6);
   
+  if (couple_ && couple_->p_frame_id_ == 101){
+    for (int32_t i=0; i<N; i++) {
+      if (p_matched[i].u1p < 400.){
+        block[0].push_back(i);
+      }else if (p_matched[i].u1p > 800.){
+        block[2].push_back(i);
+      }else{
+        block[1].push_back(i);
+      }
+    }
+    for (int32_t blocki = 0; blocki < 3; blocki++){
+      for (int32_t epoch = 0; epoch < 100;  epoch++){
+        VisualOdometryStereo::result result = UPDATED;;
+
+        for (int32_t i=0; i<6; i++)
+          tr_delta_curr[i] = 0;
+
+        int block_size = block[blocki].size(); 
+        vector<int32_t> active = getRandomSample(block_size,3);
+        vector<int32_t> valid;
+        for (auto idx:active){
+          valid.push_back(block[blocki][idx]);
+        }
+        int32_t iter=0;
+        while (result==UPDATED) {
+          result = updateParameters(p_matched,valid,tr_delta_curr,1,1e-6);
+          if (iter++ > 20 || result==CONVERGED)
+            break;
+        }
+        printf("%f-%f-%f-%f-%f-%f\n", tr_delta_curr[0], tr_delta_curr[1], 
+          tr_delta_curr[2],tr_delta_curr[3], tr_delta_curr[4], tr_delta_curr[5]);
+        if (result!=FAILED) {
+          Matrix matrix_delta = transformationVectorToMatrix(tr_delta_curr);
+          std::ofstream fout("/home/hesai/project/VO/matrix_result/delta_" + 
+              std::to_string(epoch + 100 * blocki), std::ios::binary);
+          fout.write((char*)&(couple_->p_frame_id_), sizeof(int32_t));
+          fout.write((char*)&(couple_->c_frame_id_), sizeof(int32_t));
+          fout.write((char*)&(valid[0]), sizeof(int32_t));
+          fout.write((char*)&(valid[1]), sizeof(int32_t));
+          fout.write((char*)&(valid[2]), sizeof(int32_t));
+          for(int i = 0; i < 4; i++){
+            for(int j = 0; j < 4; j++)
+            fout.write((char*)&(matrix_delta.val[i][j]),sizeof(FLOAT));
+          }
+          fout.close();
+        }
+      }
+    }
+  }
+
   // clear parameter vector
   inliers.clear();
+  if (couple_)
+    couple_->features_count_ = std::vector<int32_t>(N, 0);
 
   // initial RANSAC estimate
   for (int32_t k=0;k<param.ransac_iters;k++) {
@@ -120,11 +178,20 @@ vector<double> VisualOdometryStereo::estimateMotion (vector<Matcher::p_match> p_
     // overwrite best parameters if we have more inliers
     if (result!=FAILED) {
       vector<int32_t> inliers_curr = getInlier(p_matched,tr_delta_curr);
+      if (couple_){
+        for (auto inlier : inliers)
+          couple_->features_count_[inlier] += 1;
+      }
       if (inliers_curr.size()>inliers.size()) {
         inliers = inliers_curr;
         tr_delta = tr_delta_curr;
       }
     }
+  }
+
+  if (couple_){
+    for (auto inlier : inliers)
+      couple_->features_count_[inlier] *= -1;
   }
   
   // final optimization (refinement)
@@ -132,7 +199,7 @@ vector<double> VisualOdometryStereo::estimateMotion (vector<Matcher::p_match> p_
     int32_t iter=0;
     VisualOdometryStereo::result result = UPDATED;
     while (result==UPDATED) {     
-      result = updateParameters(p_matched,inliers,tr_delta,1,1e-8);
+      result = updateParameters(p_matched,inliers,tr_delta,1,1e-9);
       if (iter++ > 100 || result==CONVERGED)
         break;
     }

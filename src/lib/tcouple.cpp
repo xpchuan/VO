@@ -9,10 +9,14 @@ void TCouple::saveToBinaryFile(std::string path){
       for(int j = 0; j < 4; j++)
         fout.write((char*)&(pose_.val[i][j]),sizeof(FLOAT));
     }
-    int size = matches.size();
+    int size = matches_.size();
     fout.write((char*)&(size), sizeof(int));
-    for (auto it = matches.begin(); it != matches.end(); ++it){
+    for (auto it = matches_.begin(); it != matches_.end(); ++it){
         fout.write((char*)&(*it), sizeof(Matcher::p_match));
+    }
+    for (auto it = features_count_.begin(); 
+    it != features_count_.end(); ++it){
+        fout.write((char*)&(*it), sizeof(int32_t));
     }
     fout.close();
 }
@@ -36,7 +40,7 @@ void TCouple::loadFromBinaryFile(std::string path){
     for (int i = 0; i < size; i++){
         Matcher::p_match match;
         fin.read((char*)&(match), sizeof(Matcher::p_match));
-        matches.push_back(match);
+        matches_.push_back(match);
     }
     fin.close();
 }

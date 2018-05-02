@@ -134,7 +134,7 @@ public:
   // and you want to cancel the change of (unknown) camera gain.
   float getGain (std::vector<int32_t> inliers);
 
-private:
+
 
   // structure for storing interest points
   struct maximum {
@@ -164,6 +164,8 @@ private:
     }
   };
   
+private:
+
   // computes the address offset for coordinates u,v of an image of given width
   inline int32_t getAddressOffsetImage (const int32_t& u,const int32_t& v,const int32_t& width) {
     return v*width+u;

@@ -6,9 +6,9 @@
 #include "matcher.h"
 
 int main(int argc, char ** argv){
-    std::string data_dir = "/home/hesai/project/libviso2/data/dataset/sequences/00";
-    std::string result_dir = "/home/hesai/project/libviso2/result";
-    std::string im_result_dir = "/home/hesai/project/libviso2/im_result";
+    std::string data_dir = "/home/hesai/project/VO/data/";
+    std::string result_dir = "/home/hesai/project/VO/result";
+    std::string im_result_dir = "/home/hesai/project/VO/im_result";
     cv::Mat c_left,p_left,c_right,p_right;
     int i = 1;
     for(; i < 800; i++){

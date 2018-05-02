@@ -31,7 +31,9 @@ Street, Fifth Floor, Boston, MA 02110-1301, USA
 #include <vector>
 #include <stdint.h>
 
+
 #include <viso_stereo.h>
+
 #include <png++/png.hpp>
 
 #include <vector>
@@ -39,8 +41,6 @@ Street, Fifth Floor, Boston, MA 02110-1301, USA
 #include <fstream>
 
 //using namespace std;
-
-
 
 
 int main (int argc, char** argv) {
@@ -53,7 +53,7 @@ int main (int argc, char** argv) {
 
   // sequence directory
   //string dir = argv[1];
-  std::string dir = "/home/hesai/project/libviso2/data/dataset/sequences/00";
+  std::string dir = "/home/hesai/project/VO";
   
   // set most important visual odometry parameters
   // for a full parameter list, look at: viso_stereo.h
@@ -67,6 +67,7 @@ int main (int argc, char** argv) {
   
   // init visual odometry
   VisualOdometryStereo viso(param);
+
   
   // current pose (this matrix transforms a point from the current
   // frame's camera coordinates to the first frame's camera coordinates)
@@ -85,7 +86,7 @@ int main (int argc, char** argv) {
       //init save
       TCouple* couple;
       if(i > 0)
-        couple = new TCouple();
+        couple = NULL; // couple = new TCouple();
       else
         couple = NULL;
 
@@ -120,8 +121,9 @@ int main (int argc, char** argv) {
       if (viso.process(left_img_data,right_img_data,dims,couple,i)) {
       
         // on success, update current pose
-        pose = pose * Matrix::inv(viso.getMotion());
-      
+        //pose = pose * Matrix::inv(viso.getMotion());
+        pose = viso.getAbpose();
+
         // output some statistics
         double num_matches = viso.getNumberOfMatches();
         double num_inliers = viso.getNumberOfInliers();
@@ -136,7 +138,7 @@ int main (int argc, char** argv) {
       }
 
       if(couple){
-         couple->saveToBinaryFile("/home/hesai/project/libviso2/result/couple-" + std::to_string(i-1) + "-" + std::to_string(i));
+         couple->saveToBinaryFile("/home/hesai/project/VO/result/couple-" + std::to_string(i-1) + "-" + std::to_string(i));
          delete couple;
          couple = NULL;
       }
@@ -156,7 +158,7 @@ int main (int argc, char** argv) {
 
 
   //save result
-  std::ofstream fout("./pose_result.bin",std::ios::binary);
+  std::ofstream fout("../Matlab_process/pose_result.bin",std::ios::binary);
   for(std::vector<Matrix>::iterator it = pose_vec.begin();
                                    it != pose_vec.end(); ++it){
     for(int i = 0; i < 4; i++){

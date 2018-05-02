@@ -5,6 +5,7 @@ project (libviso2)
 add_compile_options(-std=c++11)
 
 find_package(OpenCV REQUIRED)
+find_package(Threads REQUIRED)
 
 # directories
 set (LIBVISO2_SRC_DIR src/lib)
@@ -22,7 +23,7 @@ FILE(GLOB LIBVISO2_SRC_FILES "src/lib/*.cpp")
 set(CMAKE_BUILD_TYPE Debug)
 
 add_library(viso2 ${LIBVISO2_SRC_FILES})
-target_link_libraries (viso2 png)
+target_link_libraries (viso2 png ${CMAKE_THREAD_LIBS_INIT})
 
 # demo program
 add_executable(viso2_demo src/demo/demo.cpp)

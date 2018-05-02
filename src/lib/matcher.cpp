@@ -22,6 +22,7 @@ Street, Fifth Floor, Boston, MA 02110-1301, USA
 #include "matcher.h"
 #include "triangle.h"
 #include "filter.h"
+#include "local_map.h"
 
 using namespace std;
 
@@ -174,10 +175,20 @@ void Matcher::pushBack (uint8_t *I1,uint8_t* I2,int32_t* dims,const bool replace
     }
   }
 
+  KeyFrame::parameters mparam;
+  mparam.height = height;
+  mparam.width = width;
+  mparam.base = param.base;
+  mparam.cv = param.cv;
+  mparam.cu = param.cu;
+  mparam.f = param.f;
+
   // compute new features for current frame
   computeFeatures(I1c,dims_c,m1c1,n1c1,m1c2,n1c2,I1c_du,I1c_dv,I1c_du_full,I1c_dv_full);
-  if (I2!=0)
+  if (I2!=0){
     computeFeatures(I2c,dims_c,m2c1,n2c1,m2c2,n2c2,I2c_du,I2c_dv,I2c_du_full,I2c_dv_full);
+    Map::instance()->addFrame(mparam, m1c1, n1c1, m2c1, n2c1);
+  }
 }
 
 void Matcher::matchFeatures(int32_t method, Matrix *Tr_delta) {

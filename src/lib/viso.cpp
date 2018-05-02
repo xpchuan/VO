@@ -20,8 +20,10 @@ Street, Fifth Floor, Boston, MA 02110-1301, USA
 */
 
 #include "viso.h"
+#include "local_map.h"
 
 #include <math.h>
+
 
 using namespace std;
 
@@ -43,11 +45,13 @@ bool VisualOdometry::updateMotion () {
   
   // estimate motion
   vector<double> tr_delta = estimateMotion(p_matched);
-  
+  Ab_pose = Map::instance()->getCorrect(tr_delta);
+
   // on failure
   if (tr_delta.size()!=6)
-    return false;
+     return false;
   
+   
   // set transformation matrix (previous to current frame)
   Tr_delta = transformationVectorToMatrix(tr_delta);
   Tr_valid = true;

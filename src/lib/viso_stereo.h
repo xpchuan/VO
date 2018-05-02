@@ -62,7 +62,7 @@ public:
   //                     when small/no motions are observed to obtain Tr_delta wrt
   //                     an older coordinate system / time step than the previous one.
   // output: returns false if an error occured
-  bool process (uint8_t *I1,uint8_t *I2,int32_t* dims, TCouple* couple, int id, bool replace=false);
+  bool process (uint8_t *I1,uint8_t *I2,int32_t* dims, TCouple* couple, bool replace=false);
 
   using VisualOdometry::process;
 
@@ -79,10 +79,10 @@ private:
 
   double *X,*Y,*Z;    // 3d points
   double *p_residual; // residuals (p_residual=p_observe-p_predict)
-  
+ 
   // parameters
   parameters param;
-  //std::vector<SaveItem> save_sequence;
+
 };
 
 #endif // VISO_STEREO_H

@@ -19,8 +19,11 @@ libviso2; if not, write to the Free Software Foundation, Inc., 51 Franklin
 Street, Fifth Floor, Boston, MA 02110-1301, USA 
 */
 
-#include "viso_stereo.h"
 #include <iostream>
+
+#include "viso_stereo.h"
+#include "local_map.h"
+
 
 using namespace std;
 
@@ -32,7 +35,7 @@ VisualOdometryStereo::VisualOdometryStereo (parameters param) : param(param), Vi
 VisualOdometryStereo::~VisualOdometryStereo() {
 }
 
-bool VisualOdometryStereo::process (uint8_t *I1,uint8_t *I2,int32_t* dims, TCouple* couple, int id, bool replace) {
+bool VisualOdometryStereo::process (uint8_t *I1,uint8_t *I2,int32_t* dims, TCouple* couple, bool replace) {
   
   // push back images
   matcher->pushBack(I1,I2,dims,replace);

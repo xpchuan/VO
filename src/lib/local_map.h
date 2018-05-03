@@ -122,7 +122,7 @@ class Map{
             ab_pose_ = Matrix::eye(4);
             delta_pose_ = Matrix::eye(4);
             frame_count_ = 0;
-            process_th_ = new std::thread(&Map::process, this);
+            process_th_ = NULL;
         }
 
         ~Map(){
@@ -179,11 +179,8 @@ class Map{
 
         //Parameters
         int32_t queue_size_;
-
-        std::condition_variable cv_pushed_;
-        std::condition_variable cv_matched_;
-        std::mutex mex_;
         bool map_matched_;
+
         std::thread *process_th_;
 
         static Map* instance_;

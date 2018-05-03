@@ -158,6 +158,7 @@ vector<double> VisualOdometryStereo::estimateMotion (vector<Matcher::p_match> p_
   delete[] p_observe;
   delete[] p_residual;
   
+  std::cout << success << std::endl;
   // parameter estimate succeeded?
   if (success) return tr_delta;
   else         return vector<double>();

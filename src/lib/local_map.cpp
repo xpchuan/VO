@@ -53,12 +53,21 @@ Matrix transformationVectorToMatrix (std::vector<double> tr) {
   return Tr;
 }
 
+// void print_mem(int32_t* input, int32_t num){
+//   char* source = (char*)input;
+//   for (int i = 0; i < num; i++){
+//     char s = *(source + i);
+//     printf("%x,", s);
+//   }
+//   printf("\n");
+// }
+
 void KeyFrame::feedMaximum(int32_t *max_des_l, int32_t num_l,
                            int32_t *max_des_r,  int32_t num_r){
     max_des_l_ = (int32_t*)_mm_malloc(sizeof(Matcher::maximum)*num_l,16);
     max_des_r_ = (int32_t*)_mm_malloc(sizeof(Matcher::maximum)*num_r,16);
-    memcpy(max_des_l_, max_des_l, num_l * sizeof(Matcher::maximum) * 16);
-    memcpy(max_des_r_, max_des_r, num_r * sizeof(Matcher::maximum) * 16);
+    memcpy(max_des_l_, max_des_l, num_l * sizeof(Matcher::maximum) * 1);
+    memcpy(max_des_r_, max_des_r, num_r * sizeof(Matcher::maximum) * 1);
     num_l_ = num_l;
     num_r_ = num_r;
 }
@@ -70,6 +79,7 @@ void KeyFrame::stereoMatch(){
   static int32_t u_bin_num = (int32_t)ceil((float)param_.width/(float)param_.match_binsize);
   static int32_t v_bin_num = (int32_t)ceil((float)param_.height/(float)param_.match_binsize);
   static int32_t bin_num   = 4*v_bin_num*u_bin_num;
+  
 
   std::vector<int32_t> *kl = new std::vector<int32_t>[bin_num];
   std::vector<int32_t> *kr = new std::vector<int32_t>[bin_num];
@@ -111,7 +121,7 @@ void KeyFrame::stereoMatch(){
 
         MatchedStereo couple;
 
-        couple.lmax = max_des_l_ + step_size*i2c;
+        couple.lmax = max_des_l_ + step_size*i1c;
         couple.rmax = max_des_r_ + step_size*i2c;
 
         double d = std::max((double)u1c-(double)u2c,0.0001);
@@ -187,7 +197,6 @@ void KeyFrame::createIndexVector (int32_t* m,int32_t n,std::vector<int32_t> *k,c
   
   // for all points do
   for (int32_t i=0; i<n; i++) {
-    
     // extract coordinates and class
     int32_t u = *(m+step_size*i+0); // u-coordinate
     int32_t v = *(m+step_size*i+1); // v-coordinate
@@ -281,12 +290,13 @@ void Map::addFrame(KeyFrame::parameters param,
                     int32_t *max_des_l, int32_t num_l,
                     int32_t *max_des_r,  int32_t num_r){
   frame_count_ ++;
-
+  printf("+++ start add frame +++\n");
   if (frames_.size() == queue_size_){
     delete frames_.back();
     frames_.pop_back();
   }
 
+  printf("+++ add frame +++\n");
   if (frames_.size() > queue_size_)
     std::cerr << "Map : Frame Queue Error";
 
@@ -297,13 +307,15 @@ void Map::addFrame(KeyFrame::parameters param,
   frames_.insert(frames_.begin(), frame);
   match_param_ = param;
   
-  cv_pushed_.notify_one();
+  printf("create thread\n");
+  process_th_ = new std::thread(&Map::process, this);
 }
 
 inline void Map::fillFramesIndexVector(std::vector<KeyFrame::MatchedStereo> &couple, Matrix project,
                                        std::vector<int32_t*> *kl, std::vector<int32_t*> *kr,
                                        const int32_t &u_bin_num,const int32_t &v_bin_num){
   
+  printf("+++ fill frame +++\n");
   // descriptor step size
   int32_t step_size = sizeof(Matcher::maximum)/sizeof(int32_t);
   
@@ -325,6 +337,7 @@ inline void Map::fillFramesIndexVector(std::vector<KeyFrame::MatchedStereo> &cou
 
   couples_record_.clear();
 
+  printf("+++ couples record +++\n");
   // for all points do
   for (int32_t i=0; i<n; i++) {
     
@@ -367,6 +380,7 @@ inline void Map::fillFramesIndexVector(std::vector<KeyFrame::MatchedStereo> &cou
 
     couples_record_[lmax] = rmax;
   }
+  printf("+++ finish record +++\n");
 }
 
 inline void Map::findMatch (int32_t* m1,std::vector<int32_t*> *k2,
@@ -445,91 +459,96 @@ inline void Map::findMatch (int32_t* m1,std::vector<int32_t*> *k2,
 }
 
 void Map::process(){
-  bool use_prior = true;
+  bool use_prior = false;
 
-  while(1){
-    std::unique_lock<std::mutex> plock(mex_); 
-    cv_pushed_.wait(plock);
+  frames_[0]->stereoMatch();
 
-    frames_[0]->stereoMatch();
+  printf("process start\n");
+  // descriptor step size
+  int32_t step_size = sizeof(Matcher::maximum)/sizeof(int32_t);
+  int32_t u_bin_num = (int32_t)ceil((float)match_param_.width/(float)match_param_.match_binsize);
+  int32_t v_bin_num = (int32_t)ceil((float)match_param_.height/(float)match_param_.match_binsize);
+  int32_t bin_num   = 4*v_bin_num*u_bin_num;
 
-    // descriptor step size
-    int32_t step_size = sizeof(Matcher::maximum)/sizeof(int32_t);
-    int32_t u_bin_num = (int32_t)ceil((float)match_param_.width/(float)match_param_.match_binsize);
-    int32_t v_bin_num = (int32_t)ceil((float)match_param_.height/(float)match_param_.match_binsize);
-    int32_t bin_num   = 4*v_bin_num*u_bin_num;
+  std::vector<int32_t*> *klf = new std::vector<int32_t*>[bin_num];
+  std::vector<int32_t*> *krf = new std::vector<int32_t*>[bin_num];
 
-    std::vector<int32_t*> *klf = new std::vector<int32_t*>[bin_num];
-    std::vector<int32_t*> *krf = new std::vector<int32_t*>[bin_num];
-    for(int i = 1; i < frames_.size(); i++){
+  if (frames_.size() > 1) {
+    for(int i = 1; i < frames_.size(); i++) {
       Matrix project = Matrix::inv(frames_[0]->pose_) * frames_[i]->pose_;
       fillFramesIndexVector(frames_[i]->stereo_mateched_, project, klf, krf, u_bin_num, v_bin_num);
     }
-
-
-    if (frames_.size() >= queue_size_){
-      int32_t n1c = frames_[0]->num_l_;
-      int32_t n2c = frames_[0]->num_r_;
-      int32_t *m1c = frames_[0]->max_des_l_;
-      int32_t *m2c = frames_[0]->max_des_r_;
-
-      for (auto &select:frames_[0]->stereo_mateched_){
-
-        int32_t* l1cf;
-        int32_t* r1cf;
-
-        int32_t *lmax = select.lmax;
-        int32_t *rmax = select.rmax;
-
-        // coordinates in previous left image
-        int32_t u1c = *(lmax+0);
-        int32_t v1c = *(lmax+1);
-        int32_t i1c = *(lmax+2);
-
-        int32_t u2c = *(rmax+0);
-        int32_t v2c = *(rmax+1);
-        int32_t i2c = *(rmax+2);
-
-        // compute row and column of statistics bin to which this observation belongs
-        int32_t u1_bin = std::min((int32_t)floor((float)u1c/(float)match_param_.match_binsize),u_bin_num-1);
-        int32_t v1_bin = std::min((int32_t)floor((float)v1c/(float)match_param_.match_binsize),v_bin_num-1);
-        int32_t stat1_bin = v1_bin*u_bin_num+u1_bin;
-
-        int32_t u2_bin = std::min((int32_t)floor((float)u1c/(float)match_param_.match_binsize),u_bin_num-1);
-        int32_t v2_bin = std::min((int32_t)floor((float)v1c/(float)match_param_.match_binsize),v_bin_num-1);
-        int32_t stat2_bin = v2_bin*u_bin_num+u2_bin;
-
-        findMatch(lmax,klf,u_bin_num,v_bin_num,stat1_bin,l1cf, 1,true ,use_prior);
-        findMatch(rmax,krf,u_bin_num,v_bin_num,stat2_bin,r1cf, 1,true ,use_prior);
-
-        if (couples_record_[l1cf] == r1cf){
-          p_match match;
-          match.i1c = i1c;
-          match.i2c = i2c;
-          match.u1c = u1c;
-          match.u2c = u2c;
-          match.v1c = v1c;
-          match.v2c = v2c;
-          match.x = select.x;
-          match.y = select.y;
-          match.z = select.z;
-          p_matched_.push_back(match);
-        }
-      }
-      map_matched_ = true;
-    }else{
-      map_matched_ = false;
-    }
-
-    cv_matched_.notify_one();
   }
+
+  printf("filled finish %d\n", frames_.size());
+
+  if (frames_.size() >= queue_size_){
+    printf("start-match---->>>>>>>%d\n", frames_[0]->stereo_mateched_.size());
+    int32_t n1c = frames_[0]->num_l_;
+    int32_t n2c = frames_[0]->num_r_;
+    int32_t *m1c = frames_[0]->max_des_l_;
+    int32_t *m2c = frames_[0]->max_des_r_;
+
+    for (auto &select:frames_[0]->stereo_mateched_){
+      int32_t* l1cf;
+      int32_t* r1cf;
+
+      int32_t *lmax = select.lmax;
+      int32_t *rmax = select.rmax;
+
+      // coordinates in previous left image
+      int32_t u1c = *(lmax+0);
+      int32_t v1c = *(lmax+1);
+      int32_t i1c = *(lmax+2);
+
+      int32_t u2c = *(rmax+0);
+      int32_t v2c = *(rmax+1);
+      int32_t i2c = *(rmax+2);
+
+      // compute row and column of statistics bin to which this observation belongs
+      int32_t u1_bin = std::min((int32_t)floor((float)u1c/(float)match_param_.match_binsize),u_bin_num-1);
+      int32_t v1_bin = std::min((int32_t)floor((float)v1c/(float)match_param_.match_binsize),v_bin_num-1);
+      int32_t stat1_bin = v1_bin*u_bin_num+u1_bin;
+
+      int32_t u2_bin = std::min((int32_t)floor((float)u1c/(float)match_param_.match_binsize),u_bin_num-1);
+      int32_t v2_bin = std::min((int32_t)floor((float)v1c/(float)match_param_.match_binsize),v_bin_num-1);
+      int32_t stat2_bin = v2_bin*u_bin_num+u2_bin;
+
+      findMatch(lmax,klf,u_bin_num,v_bin_num,stat1_bin,l1cf, 1,true ,use_prior);
+      findMatch(rmax,krf,u_bin_num,v_bin_num,stat2_bin,r1cf, 1,true ,use_prior);
+
+      if (couples_record_[l1cf] == r1cf){
+        p_match match;
+        match.i1c = i1c;
+        match.i2c = i2c;
+        match.u1c = u1c;
+        match.u2c = u2c;
+        match.v1c = v1c;
+        match.v2c = v2c;
+        match.x = select.x;
+        match.y = select.y;
+        match.z = select.z;
+        p_matched_.push_back(match);
+      }
+    }
+    map_matched_ = true;
+  }else{
+    map_matched_ = false;
+  }
+
+  printf("process finish\n");
 }
 
 Matrix Map::getCorrect(std::vector<double> pre_tr){
-  std::unique_lock<std::mutex> plock(mex_);
-  cv_matched_.wait(plock);
 
-  std::vector<double>  delta;
+  printf("wait for process join\n");
+  if (process_th_){
+    process_th_->join();
+    delete process_th_;
+    process_th_ = NULL;
+  }
+
+  std::vector<double> delta;
   if (!map_matched_){
     delta = pre_tr;
   }else{
@@ -545,7 +564,8 @@ Matrix Map::getCorrect(std::vector<double> pre_tr){
   
   delta_pose_ = transformationVectorToMatrix(delta);
   ab_pose_ = ab_pose_ * Matrix::inv(delta_pose_);
-  frames_[0]->pose_ = ab_pose_;
+  if (!frames_.empty())
+    frames_[0]->pose_ = ab_pose_;
   return ab_pose_;
 }
 

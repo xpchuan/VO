@@ -53,7 +53,7 @@ int main (int argc, char** argv) {
 
   // sequence directory
   //string dir = argv[1];
-  std::string dir = "/home/hesai/project/VO";
+  std::string dir = "/home/hesai/project/VO/data";
   
   // set most important visual odometry parameters
   // for a full parameter list, look at: viso_stereo.h
@@ -114,7 +114,7 @@ int main (int argc, char** argv) {
       }
 
       // status
-      std::cout << "Processing: Frame: " << i;
+      std::cout << "Processing: Frame: " << i << std::endl;
       
       // compute visual odometry
       int32_t dims[] = {width,height,width};
@@ -123,7 +123,7 @@ int main (int argc, char** argv) {
         // on success, update current pose
         //pose = pose * Matrix::inv(viso.getMotion());
         pose = viso.getAbpose();
-
+        
         // output some statistics
         double num_matches = viso.getNumberOfMatches();
         double num_inliers = viso.getNumberOfInliers();

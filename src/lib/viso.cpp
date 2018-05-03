@@ -45,8 +45,7 @@ bool VisualOdometry::updateMotion () {
   
   // estimate motion
   vector<double> tr_delta = estimateMotion(p_matched);
-  printf("to get frame\n");
-  //Ab_pose = Map::instance()->getCorrect(tr_delta);
+  Ab_pose = Map::instance()->getCorrect(tr_delta);
   
   // on failure
   if (tr_delta.size()!=6)

@@ -2,7 +2,7 @@
 #define VO_MAP_H_
 
 #include <vector>
-#include <thread> 
+#include <boost/thread/thread.hpp>  
 #include <condition_variable>
 #include <map>
 
@@ -181,7 +181,7 @@ class Map{
         int32_t queue_size_;
         bool map_matched_;
 
-        std::thread *process_th_;
+        boost::thread *process_th_;
 
         static Map* instance_;
 };

@@ -290,13 +290,11 @@ void Map::addFrame(KeyFrame::parameters param,
                     int32_t *max_des_l, int32_t num_l,
                     int32_t *max_des_r,  int32_t num_r){
   frame_count_ ++;
-  printf("+++ start add frame +++\n");
   if (frames_.size() == queue_size_){
     delete frames_.back();
     frames_.pop_back();
   }
 
-  printf("+++ add frame +++\n");
   if (frames_.size() > queue_size_)
     std::cerr << "Map : Frame Queue Error";
 
@@ -307,15 +305,13 @@ void Map::addFrame(KeyFrame::parameters param,
   frames_.insert(frames_.begin(), frame);
   match_param_ = param;
   
-  printf("create thread\n");
-  process_th_ = new std::thread(&Map::process, this);
+  process_th_ = new boost::thread(&Map::process, this);
 }
 
 inline void Map::fillFramesIndexVector(std::vector<KeyFrame::MatchedStereo> &couple, Matrix project,
                                        std::vector<int32_t*> *kl, std::vector<int32_t*> *kr,
                                        const int32_t &u_bin_num,const int32_t &v_bin_num){
   
-  printf("+++ fill frame +++\n");
   // descriptor step size
   int32_t step_size = sizeof(Matcher::maximum)/sizeof(int32_t);
   
@@ -337,7 +333,6 @@ inline void Map::fillFramesIndexVector(std::vector<KeyFrame::MatchedStereo> &cou
 
   couples_record_.clear();
 
-  printf("+++ couples record +++\n");
   // for all points do
   for (int32_t i=0; i<n; i++) {
     
@@ -380,7 +375,6 @@ inline void Map::fillFramesIndexVector(std::vector<KeyFrame::MatchedStereo> &cou
 
     couples_record_[lmax] = rmax;
   }
-  printf("+++ finish record +++\n");
 }
 
 inline void Map::findMatch (int32_t* m1,std::vector<int32_t*> *k2,
@@ -463,7 +457,6 @@ void Map::process(){
 
   frames_[0]->stereoMatch();
 
-  printf("process start\n");
   // descriptor step size
   int32_t step_size = sizeof(Matcher::maximum)/sizeof(int32_t);
   int32_t u_bin_num = (int32_t)ceil((float)match_param_.width/(float)match_param_.match_binsize);
@@ -480,10 +473,8 @@ void Map::process(){
     }
   }
 
-  printf("filled finish %d\n", frames_.size());
 
   if (frames_.size() >= queue_size_){
-    printf("start-match---->>>>>>>%d\n", frames_[0]->stereo_mateched_.size());
     int32_t n1c = frames_[0]->num_l_;
     int32_t n2c = frames_[0]->num_r_;
     int32_t *m1c = frames_[0]->max_des_l_;
@@ -535,13 +526,10 @@ void Map::process(){
   }else{
     map_matched_ = false;
   }
-
-  printf("process finish\n");
 }
 
 Matrix Map::getCorrect(std::vector<double> pre_tr){
 
-  printf("wait for process join\n");
   if (process_th_){
     process_th_->join();
     delete process_th_;

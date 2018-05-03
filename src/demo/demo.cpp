@@ -30,14 +30,11 @@ Street, Fifth Floor, Boston, MA 02110-1301, USA
 #include <string>
 #include <vector>
 #include <stdint.h>
-
+#include <time.h>
 
 #include <viso_stereo.h>
-
 #include <png++/png.hpp>
-
 #include <vector>
-
 #include <fstream>
 
 //using namespace std;
@@ -72,6 +69,7 @@ int main (int argc, char** argv) {
   // current pose (this matrix transforms a point from the current
   // frame's camera coordinates to the first frame's camera coordinates)
   Matrix pose = Matrix::eye(4);
+  Matrix no_map_pose = Matrix::eye(4);
   std::vector<Matrix>  pose_vec;
   // loop through all frames i=0:372
   for (int32_t i=0; i<4540; i++) {
@@ -114,24 +112,31 @@ int main (int argc, char** argv) {
       }
 
       // status
-      std::cout << "Processing: Frame: " << i << std::endl;
-      
+      std::cout << "Processing: Frame: " << i ;
+      clock_t tick = clock();
       // compute visual odometry
       int32_t dims[] = {width,height,width};
-      if (viso.process(left_img_data,right_img_data,dims,couple,i)) {
-      
+      if (viso.process(left_img_data,right_img_data,dims,couple)) {
+        
         // on success, update current pose
-        //pose = pose * Matrix::inv(viso.getMotion());
+        no_map_pose = no_map_pose * Matrix::inv(viso.getMotion());
         pose = viso.getAbpose();
         
         // output some statistics
         double num_matches = viso.getNumberOfMatches();
         double num_inliers = viso.getNumberOfInliers();
         std::cout << ", Matches: " << num_matches;
-        std::cout << ", Inliers: " << 100.0*num_inliers/num_matches << " %" << ", Current pose: " << std::endl;
+        std::cout << ", Inliers: " << 100.0*num_inliers/num_matches << " %" << ", Current pose: " << ", FPS:" 
+                  << CLOCKS_PER_SEC / static_cast<float>(clock() - tick)   << std::endl;
+        tick = clock();
+
         std::cout << pose << std::endl;
+        std::cout << "====================================================" << std::endl;
+        std::cout << no_map_pose << std::endl;
         pose_vec.push_back(pose);
-        couple->pose_ = pose;
+
+        if (couple)
+          couple->pose_ = pose;
 
       } else {
         std::cout << " ... failed!" << std::endl;

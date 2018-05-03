@@ -15,8 +15,6 @@ class KeyFrame{
     public:
         struct parameters {
   
-            int32_t nms_n;                  // non-max-suppression: min. distance between maxima (in pixels)
-            int32_t nms_tau;                // non-max-suppression: interest point peakiness threshold
             int32_t match_binsize;          // matching bin width/height (affects efficiency only)
             int32_t match_radius;           // matching radius (du/dv in pixels)
             int32_t match_disp_tolerance;   // dv tolerance for stereo matches (in pixels)
@@ -30,8 +28,6 @@ class KeyFrame{
             
             // default settings
             parameters () {
-                nms_n                  = 3;
-                nms_tau                = 50;
                 match_binsize          = 50;
                 match_radius           = 200;
                 match_disp_tolerance   = 2;
@@ -118,6 +114,14 @@ class Map{
             }
         };
 
+        struct CoupleInfo {
+            int32_t* rmax;
+            double x1p;
+            double y1p;
+            double z1p;
+            int32_t frame_sequence;
+        };
+
         Map():map_matched_(false), queue_size_(5){
             ab_pose_ = Matrix::eye(4);
             delta_pose_ = Matrix::eye(4);
@@ -144,16 +148,21 @@ class Map{
     private:
 
         inline void 
-        fillFramesIndexVector (std::vector<KeyFrame::MatchedStereo> &couple, Matrix pose,
+        fillFramesIndexVector (std::vector<KeyFrame::MatchedStereo> &couple, 
+                                           Matrix to_current, Matrix to_previous,
                                            std::vector<int32_t*> *kl, std::vector<int32_t*> *kr,
-                                           const int32_t &u_bin_num,const int32_t &v_bin_num);
+                                           const int32_t &u_bin_num,const int32_t &v_bin_num, 
+                                           int32_t frame_sequence);
         inline void 
         findMatch (int32_t* m1, std::vector<int32_t*> *k2,
                    const int32_t &u_bin_num,const int32_t &v_bin_num,const int32_t &stat_bin,
                    int32_t* &min_ind,int32_t stage,bool flow,bool use_prior,double u_=-1,double v_=-1);
 
         std::vector<p_match>  p_matched_;
-        std::map<int32_t*, int32_t*> couples_record_;
+
+        std::vector<CoupleInfo> couples_info_;
+        std::map<int32_t*, int32_t > couples_record_;
+
         std::vector<KeyFrame*> frames_;
         KeyFrame::parameters match_param_;
 

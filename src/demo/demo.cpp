@@ -71,8 +71,9 @@ int main (int argc, char** argv) {
   Matrix pose = Matrix::eye(4);
   Matrix no_map_pose = Matrix::eye(4);
   std::vector<Matrix>  pose_vec;
+  std::vector<Matrix>  no_map_pose_vec;
   // loop through all frames i=0:372
-  for (int32_t i=0; i<4540; i++) {
+  for (int32_t i=0; i<1000; i++) {
 
     // input file names
     char base_name[256]; sprintf(base_name,"%06d.png",i);
@@ -130,10 +131,11 @@ int main (int argc, char** argv) {
                   << CLOCKS_PER_SEC / static_cast<float>(clock() - tick)   << std::endl;
         tick = clock();
 
-        std::cout << pose << std::endl;
-        std::cout << "====================================================" << std::endl;
-        std::cout << no_map_pose << std::endl;
+        // std::cout << pose << std::endl;
+        // std::cout << "------------------------------------------------------" << std::endl;
+        // std::cout << no_map_pose << std::endl;
         pose_vec.push_back(pose);
+        no_map_pose_vec.push_back(no_map_pose);
 
         if (couple)
           couple->pose_ = pose;
@@ -171,8 +173,19 @@ int main (int argc, char** argv) {
         fout.write((char*)&(it->val[i][j]),sizeof(FLOAT));
     }
   }
+
+  std::ofstream fout_2("../Matlab_process/no_map_pose_result.bin",std::ios::binary);
+  for(std::vector<Matrix>::iterator it = no_map_pose_vec.begin();
+                                   it != no_map_pose_vec.end(); ++it){
+    for(int i = 0; i < 4; i++){
+      for(int j = 0; j < 4; j++)
+        fout_2.write((char*)&(it->val[i][j]),sizeof(FLOAT));
+    }
+  }
+
   std::cout<<"length:"<<pose_vec.size()<<std::endl;
   fout.close();
+  fout_2.close();
 
   // exit
   return 0;

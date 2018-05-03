@@ -53,6 +53,27 @@ Matrix transformationVectorToMatrix (std::vector<double> tr) {
   return Tr;
 }
 
+inline void transPoint(double &xt, double &yt, double &zt, 
+            const double &xs, const double &ys, const double &zs, const Matrix &trans){
+  double t00,t01,t02,t03,t10,t11,t12,t13,t20,t21,t22,t23;
+  t00 = trans.val[0][0];
+  t01 = trans.val[0][1];
+  t02 = trans.val[0][2];
+  t03 = trans.val[0][3];
+  t10 = trans.val[1][0];
+  t11 = trans.val[1][1];
+  t12 = trans.val[1][2];
+  t13 = trans.val[1][3];
+  t20 = trans.val[2][0];
+  t21 = trans.val[2][1];
+  t22 = trans.val[2][2];
+  t23 = trans.val[2][3];
+
+  xt = t00*xs + t01*ys + t02*zs + t03;
+  yt = t10*xs + t11*ys + t12*zs + t13;
+  zt = t20*xs + t21*ys + t22*zs + t23;
+}
+
 // void print_mem(int32_t* input, int32_t num){
 //   char* source = (char*)input;
 //   for (int i = 0; i < num; i++){
@@ -308,30 +329,16 @@ void Map::addFrame(KeyFrame::parameters param,
   process_th_ = new boost::thread(&Map::process, this);
 }
 
-inline void Map::fillFramesIndexVector(std::vector<KeyFrame::MatchedStereo> &couple, Matrix project,
+inline void Map::fillFramesIndexVector(std::vector<KeyFrame::MatchedStereo> &couple,  
+                                       Matrix to_current, Matrix to_previous,
                                        std::vector<int32_t*> *kl, std::vector<int32_t*> *kr,
-                                       const int32_t &u_bin_num,const int32_t &v_bin_num){
+                                       const int32_t &u_bin_num,const int32_t &v_bin_num, 
+                                       int32_t frame_sequence){
   
   // descriptor step size
   int32_t step_size = sizeof(Matcher::maximum)/sizeof(int32_t);
   
   int32_t n = couple.size();
-
-  double t00,t01,t02,t03,t10,t11,t12,t13,t20,t21,t22,t23;
-  t00 = project.val[0][0];
-  t01 = project.val[0][1];
-  t02 = project.val[0][2];
-  t03 = project.val[0][3];
-  t10 = project.val[1][0];
-  t11 = project.val[1][1];
-  t12 = project.val[1][2];
-  t13 = project.val[1][3];
-  t20 = project.val[2][0];
-  t21 = project.val[2][1];
-  t22 = project.val[2][2];
-  t23 = project.val[2][3];
-
-  couples_record_.clear();
 
   // for all points do
   for (int32_t i=0; i<n; i++) {
@@ -345,9 +352,15 @@ inline void Map::fillFramesIndexVector(std::vector<KeyFrame::MatchedStereo> &cou
     int32_t *rmax = couple[i].rmax;
 
 
-    double x1c = t00*x1f + t01*y1f + t02*z1f + t03;
-    double y1c = t10*x1f + t11*y1f + t12*z1f + t13;
-    double z1c = t20*x1f + t21*y1f + t22*z1f + t23;
+    double x1c;
+    double y1c;
+    double z1c;
+    double x1p;
+    double y1p;
+    double z1p;
+
+    transPoint(x1c, y1c, z1c, x1f, y1f, z1f, to_current);
+    transPoint(x1p, y1p, z1p, x1f, y1f, z1f, to_previous);
 
     int32_t u1c = static_cast<int32_t>(match_param_.f*x1c/z1c+match_param_.cu);
     int32_t v1c = static_cast<int32_t>(match_param_.f*y1c/z1c+match_param_.cv);
@@ -373,7 +386,9 @@ inline void Map::fillFramesIndexVector(std::vector<KeyFrame::MatchedStereo> &cou
     kl[(c1c*v_bin_num+v1_bin)*u_bin_num+u1_bin].push_back(lmax);
     kr[(c2c*v_bin_num+v2_bin)*u_bin_num+u2_bin].push_back(rmax);
 
-    couples_record_[lmax] = rmax;
+    CoupleInfo cinfo{rmax, x1p, y1p, z1p, frame_sequence};
+    couples_info_.push_back(cinfo);
+    couples_record_[lmax] = couples_info_.size() - 1;
   }
 }
 
@@ -466,13 +481,23 @@ void Map::process(){
   std::vector<int32_t*> *klf = new std::vector<int32_t*>[bin_num];
   std::vector<int32_t*> *krf = new std::vector<int32_t*>[bin_num];
 
+  
   if (frames_.size() > 1) {
+    couples_record_.clear();
+    couples_info_.clear();
+    couples_info_.reserve(2000);
+
     for(int i = 1; i < frames_.size(); i++) {
-      Matrix project = Matrix::inv(frames_[0]->pose_) * frames_[i]->pose_;
-      fillFramesIndexVector(frames_[i]->stereo_mateched_, project, klf, krf, u_bin_num, v_bin_num);
+      Matrix to_current = Matrix::inv(frames_[0]->pose_) * frames_[i]->pose_;
+      Matrix to_previous = Matrix::inv(frames_[1]->pose_) * frames_[i]->pose_;
+      fillFramesIndexVector(frames_[i]->stereo_mateched_, 
+                            to_current, to_previous, klf, krf, u_bin_num, v_bin_num, i);
     }
   }
 
+  std::vector<int> count(queue_size_, 0);
+
+  // std::cout << "\n" <<  "> Matches size for Map : " << couples_record_.size() << std::endl;
 
   if (frames_.size() >= queue_size_){
     int32_t n1c = frames_[0]->num_l_;
@@ -480,6 +505,8 @@ void Map::process(){
     int32_t *m1c = frames_[0]->max_des_l_;
     int32_t *m2c = frames_[0]->max_des_r_;
 
+    p_matched_.clear();
+    p_matched_.reserve(2000);
     for (auto &select:frames_[0]->stereo_mateched_){
       int32_t* l1cf;
       int32_t* r1cf;
@@ -508,7 +535,10 @@ void Map::process(){
       findMatch(lmax,klf,u_bin_num,v_bin_num,stat1_bin,l1cf, 1,true ,use_prior);
       findMatch(rmax,krf,u_bin_num,v_bin_num,stat2_bin,r1cf, 1,true ,use_prior);
 
-      if (couples_record_[l1cf] == r1cf){
+      CoupleInfo cinfo = couples_info_[couples_record_.at(l1cf)];
+      if (cinfo.rmax == r1cf){
+        count[cinfo.frame_sequence] ++;
+
         p_match match;
         match.i1c = i1c;
         match.i2c = i2c;
@@ -516,16 +546,26 @@ void Map::process(){
         match.u2c = u2c;
         match.v1c = v1c;
         match.v2c = v2c;
-        match.x = select.x;
-        match.y = select.y;
-        match.z = select.z;
+        match.x = cinfo.x1p;
+        match.y = cinfo.y1p;
+        match.z = cinfo.z1p;
         p_matched_.push_back(match);
+
       }
+
     }
     map_matched_ = true;
   }else{
     map_matched_ = false;
   }
+
+  for (int i = 0; i < count.size(); i++){
+    std::cout << "Frame " << i << " : " << count[i] << std::endl; 
+  }
+
+  delete [] klf;
+  delete [] krf;
+
 }
 
 Matrix Map::getCorrect(std::vector<double> pre_tr){
@@ -541,8 +581,11 @@ Matrix Map::getCorrect(std::vector<double> pre_tr){
     delta = pre_tr;
   }else{
     std::vector<double>  tr_delta = estimateMotion(p_matched_, pre_tr);
-    if (tr_delta.size() != 6)
+    if (tr_delta.size() != 6){
+      std::cout << "Map refine failed ..." << std::endl;
       delta = pre_tr;
+    }
+
     else
       delta = tr_delta;
   }

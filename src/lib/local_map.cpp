@@ -537,20 +537,37 @@ void Map::process(){
 
       CoupleInfo cinfo = couples_info_[couples_record_.at(l1cf)];
       if (cinfo.rmax == r1cf){
-        count[cinfo.frame_sequence] ++;
 
-        p_match match;
-        match.i1c = i1c;
-        match.i2c = i2c;
-        match.u1c = u1c;
-        match.u2c = u2c;
-        match.v1c = v1c;
-        match.v2c = v2c;
-        match.x = cinfo.x1p;
-        match.y = cinfo.y1p;
-        match.z = cinfo.z1p;
-        p_matched_.push_back(match);
-
+        if (cinfo.frame_sequence == 1){
+          float x = rand()%100;
+          if ( x >=0 ){
+            count[cinfo.frame_sequence] ++; 
+            p_match match;
+            match.i1c = i1c;
+            match.i2c = i2c;
+            match.u1c = u1c;
+            match.u2c = u2c;
+            match.v1c = v1c;
+            match.v2c = v2c;
+            match.x = cinfo.x1p;
+            match.y = cinfo.y1p;
+            match.z = cinfo.z1p;
+            p_matched_.push_back(match);
+          }
+        }else{
+          count[cinfo.frame_sequence] ++; 
+          p_match match;
+          match.i1c = i1c;
+          match.i2c = i2c;
+          match.u1c = u1c;
+          match.u2c = u2c;
+          match.v1c = v1c;
+          match.v2c = v2c;
+          match.x = cinfo.x1p;
+          match.y = cinfo.y1p;
+          match.z = cinfo.z1p;
+          p_matched_.push_back(match);
+        }
       }
 
     }
@@ -559,6 +576,7 @@ void Map::process(){
     map_matched_ = false;
   }
 
+  std::cout << std::endl;
   for (int i = 0; i < count.size(); i++){
     std::cout << "Frame " << i << " : " << count[i] << std::endl; 
   }

@@ -20,7 +20,7 @@ SET(CMAKE_CXX_FLAGS "-msse3")
 FILE(GLOB LIBVISO2_SRC_FILES "src/lib/*.cpp")
 
 # make release version
-set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Release)
 
 
 add_library(viso2 ${LIBVISO2_SRC_FILES})
